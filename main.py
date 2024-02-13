@@ -1,4 +1,5 @@
 import asyncio
+from functools import partial
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -22,8 +23,9 @@ class Cat(Base):
     age: Mapped[int] = mapped_column(sa.Integer())
 
 
-async def main(table):
-    engine =  create_async_engine('sqlite+aiosqlite:///test.db')
+async def main():
+    connection_str = "postgresql+asyncpg://newuser:password@localhost/postgres"
+    engine =  create_async_engine(connection_str)
 
     records = [
         {'name': 'Nami', 'age': 5},
@@ -32,6 +34,11 @@ async def main(table):
     
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        metadata = sa.MetaData()
+        await connection.run_sync(metadata.reflect)
+        table = sa.Table('cats', metadata, extend_existing=True)
+        #Table = partial(sa.Table, 'cats', metadata)
+        #table = await connection.run_sync(Table, autoload_with=connection, extend_existing=True)
         await async_insert_records_with_connection(table, records, connection)
         print('inserted with engine connection')
 
@@ -46,8 +53,4 @@ async def main(table):
 
 
 if __name__ == '__main__':
-    engine = sa.create_engine('sqlite:///test.db')
-    metadata = sa.MetaData()
-    Base.metadata.create_all(bind=engine)
-    table = sa.Table('cats', metadata, autoload_with=engine)
-    asyncio.run(main(table))
+    asyncio.run(main())
